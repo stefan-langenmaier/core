@@ -7,15 +7,9 @@
 [submodule "apps-appframework"]
 	path = apps-appframework/appframework
 	url = https://github.com/owncloud/appframework.git
-[submodule "apps-contacts"]
-	path = apps-contacts/contacts
-	url = https://github.com/owncloud/contacts.git
 [submodule "apps-news"]
 	path = apps-news/news
 	url = https://github.com/owncloud/news.git
 [submodule "apps-mozilla_sync"]
 	path = apps-mozilla_sync/mozilla_sync
 	url = https://github.com/owncloud/mozilla_sync.git
-[submodule "apps-calendar/calendar"]
-	path = apps-calendar/calendar
-	url = https://github.com/owncloud/calendar.git

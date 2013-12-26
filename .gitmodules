@@ -13,3 +13,6 @@
 [submodule "apps-mozilla_sync"]
 	path = apps-mozilla_sync/mozilla_sync
 	url = https://github.com/owncloud/mozilla_sync.git
+[submodule "apps-music/music"]
+	path = apps-music/music
+	url = https://github.com/owncloud/music

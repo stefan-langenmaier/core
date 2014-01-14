@@ -1,9 +1,6 @@
 [submodule "3rdparty"]
 	path = 3rdparty
 	url = git://github.com/owncloud/3rdparty.git
-[submodule "apps-git"]
-	path = apps-git
-	url = https://github.com/owncloud/apps.git
 [submodule "apps-appframework"]
 	path = apps-appframework/appframework
 	url = https://github.com/owncloud/appframework.git

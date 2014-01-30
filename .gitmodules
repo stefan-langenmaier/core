@@ -13,3 +13,9 @@
 [submodule "apps-git"]
 	path = apps-git
 	url = https://github.com/owncloud/apps.git
+[submodule "apps-contacts/contacts"]
+	path = apps-contacts/contacts
+	url = https://github.com/owncloud/contacts.git
+[submodule "apps-calendar/calendar"]
+	path = apps-calendar/calendar
+	url = https://github.com/owncloud/calendar.git

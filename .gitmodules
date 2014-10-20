@@ -1,3 +1,36 @@
 [submodule "3rdparty"]
 	path = 3rdparty
 	url = https://github.com/owncloud/3rdparty.git
+[submodule "my-apps-contacts/contacts"]
+	path = my-apps-contacts/contacts
+	url = https://github.com/owncloud/contacts.git
+[submodule "my-apps-gallery/gallery"]
+	path = my-apps-gallery/gallery
+	url = https://github.com/owncloud/gallery.git
+[submodule "my-apps-mozilla-sync/mozilla_sync"]
+	path = my-apps-mozilla-sync/mozilla_sync
+	url = https://github.com/owncloud/mozilla_sync
+[submodule "my-apps-calendar/calendar"]
+	path = my-apps-calendar/calendar
+	url = https://github.com/owncloud/calendar
+[submodule "my-apps"]
+	path = my-apps
+	url = https://github.com/owncloud/apps
+[submodule "my-apps-firstrunwizard/firstrunwizard"]
+	path = my-apps-firstrunwizard/firstrunwizard
+	url = https://github.com/owncloud/firstrunwizard
+[submodule "my-apps-music/music"]
+	path = my-apps-music/music
+	url = https://github.com/owncloud/music
+[submodule "my-apps-files-pdfviewer/files_pdfviewer"]
+	path = my-apps-files-pdfviewer/files_pdfviewer
+	url = https://github.com/owncloud/files_pdfviewer
+[submodule "my-apps-maps/maps"]
+	path = my-apps-maps/maps
+	url = https://github.com/owncloud/maps
+[submodule "my-apps-chat/chat"]
+	path = my-apps-chat/chat
+	url = https://github.com/owncloud/chat
+[submodule "my-apps-news/news"]
+	path = my-apps-news/news
+	url = https://github.com/owncloud/news

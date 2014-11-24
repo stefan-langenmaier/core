@@ -573,14 +573,8 @@ class OC {
 			header('HTTP/1.1 400 Bad Request');
 			header('Status: 400 Bad Request');
 
-			$domain = $_SERVER['SERVER_NAME'];
-			// Append port to domain in case it is not
-			if($_SERVER['SERVER_PORT'] !== '80' && $_SERVER['SERVER_PORT'] !== '443') {
-				$domain .= ':'.$_SERVER['SERVER_PORT'];
-			}
-
 			$tmpl = new OCP\Template('core', 'untrustedDomain', 'guest');
-			$tmpl->assign('domain', $domain);
+			$tmpl->assign('domain', $_SERVER['SERVER_NAME']);
 			$tmpl->printPage();
 
 			exit();
@@ -681,7 +675,7 @@ class OC {
 
 		// Check if ownCloud is installed or in maintenance (update) mode
 		if (!OC_Config::getValue('installed', false)) {
-			$controller = new OC\Core\Setup\Controller();
+			$controller = new OC\Core\Setup\Controller(\OC::$server->getConfig());
 			$controller->run($_POST);
 			exit();
 		}
@@ -921,7 +915,9 @@ class OC {
 			return false;
 		}
 
-		OC_JSON::callCheck();
+		if(!OC_Util::isCallRegistered()) {
+			return false;
+		}
 		OC_App::loadApps();
 
 		//setup extra user backends

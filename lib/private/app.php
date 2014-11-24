@@ -92,7 +92,7 @@ class OC_App {
 			if ($checkUpgrade and self::shouldUpgrade($app)) {
 				throw new \OC\NeedsUpdateException();
 			}
-			require_once $app . '/appinfo/app.php';
+			self::requireAppFile($app);
 			if (self::isType($app, array('authentication'))) {
 				// since authentication apps affect the "is app enabled for group" check,
 				// the enabled apps cache needs to be cleared to make sure that the
@@ -101,6 +101,16 @@ class OC_App {
 				self::$enabledAppsCache = array();
 			}
 		}
+	}
+
+	/**
+	 * Load app.php from the given app
+	 *
+	 * @param string $app app name
+	 */
+	private static function requireAppFile($app) {
+		// encapsulated here to avoid variable scope conflicts
+		require_once $app . '/appinfo/app.php';
 	}
 
 	/**
@@ -1109,13 +1119,17 @@ class OC_App {
 			return $versions; // when function is used besides in checkUpgrade
 		}
 		$versions = array();
-		$query = OC_DB::prepare('SELECT `appid`, `configvalue` FROM `*PREFIX*appconfig`'
-			. ' WHERE `configkey` = \'installed_version\'');
-		$result = $query->execute();
-		while ($row = $result->fetchRow()) {
-			$versions[$row['appid']] = $row['configvalue'];
+		try {
+			$query = OC_DB::prepare('SELECT `appid`, `configvalue` FROM `*PREFIX*appconfig`'
+				. ' WHERE `configkey` = \'installed_version\'');
+			$result = $query->execute();
+			while ($row = $result->fetchRow()) {
+				$versions[$row['appid']] = $row['configvalue'];
+			}
+			return $versions;
+		} catch (\Exception $e) {
+			return array();
 		}
-		return $versions;
 	}
 
 
@@ -1172,10 +1186,6 @@ class OC_App {
 	 * @return bool
 	 */
 	public static function updateApp($appId) {
-		if (file_exists(self::getAppPath($appId) . '/appinfo/preupdate.php')) {
-			self::loadApp($appId, false);
-			include self::getAppPath($appId) . '/appinfo/preupdate.php';
-		}
 		if (file_exists(self::getAppPath($appId) . '/appinfo/database.xml')) {
 			OC_DB::updateDbFromStructure(self::getAppPath($appId) . '/appinfo/database.xml');
 		}

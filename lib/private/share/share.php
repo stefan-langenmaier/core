@@ -288,14 +288,16 @@ class Share extends \OC\Share\Constants {
 	 * @param string $itemType
 	 * @param string $itemSource
 	 * @param string $user User user to whom the item was shared
+	 * @param int $shareType only look for a specific share type
 	 * @return array Return list of items with file_target, permissions and expiration
 	 */
-	public static function getItemSharedWithUser($itemType, $itemSource, $user) {
+	public static function getItemSharedWithUser($itemType, $itemSource, $user, $shareType = null) {
 
 		$shares = array();
+		$fileDependend = false;
 
-		$column = ($itemType === 'file' || $itemType === 'folder') ? 'file_source' : 'item_source';
 		if ($itemType === 'file' || $itemType === 'folder') {
+			$fileDependend = true;
 			$column = 'file_source';
 			$where = 'INNER JOIN `*PREFIX*filecache` ON `file_source` = `*PREFIX*filecache`.`fileid` WHERE';
 		} else {
@@ -303,7 +305,7 @@ class Share extends \OC\Share\Constants {
 			$where = 'WHERE';
 		}
 
-		$select = self::createSelectStatement(self::FORMAT_NONE, true);
+		$select = self::createSelectStatement(self::FORMAT_NONE, $fileDependend);
 
 		$where .= ' `' . $column . '` = ? AND `item_type` = ? ';
 		$arguments = array($itemSource, $itemType);
@@ -311,6 +313,11 @@ class Share extends \OC\Share\Constants {
 		if ($user !== null) {
 			$where .= ' AND `share_with` = ? ';
 			$arguments[] = $user;
+		}
+
+		if ($shareType !== null) {
+			$where .= ' AND `share_type` = ? ';
+			$arguments[] = $shareType;
 		}
 
 		$query = \OC_DB::prepare('SELECT ' . $select . ' FROM `*PREFIX*share` '. $where);
@@ -694,7 +701,7 @@ class Share extends \OC\Share\Constants {
 		// check if it is a valid itemType
 		self::getBackend($itemType);
 
-		$items = self::getItemSharedWithUser($itemType, $itemSource, $shareWith);
+		$items = self::getItemSharedWithUser($itemType, $itemSource, $shareWith, $shareType);
 
 		$toDelete = array();
 		$newParent = null;
@@ -1253,14 +1260,18 @@ class Share extends \OC\Share\Constants {
 		if (isset($shareType)) {
 			// Include all user and group items
 			if ($shareType == self::$shareTypeUserAndGroups && isset($shareWith)) {
-				$where .= ' AND `share_type` IN (?,?,?)';
+				$where .= ' AND ((`share_type` in (?, ?) AND `share_with` = ?) ';
 				$queryArgs[] = self::SHARE_TYPE_USER;
-				$queryArgs[] = self::SHARE_TYPE_GROUP;
 				$queryArgs[] = self::$shareTypeGroupUserUnique;
-				$userAndGroups = array_merge(array($shareWith), \OC_Group::getUserGroups($shareWith));
-				$placeholders = join(',', array_fill(0, count($userAndGroups), '?'));
-				$where .= ' AND `share_with` IN ('.$placeholders.')';
-				$queryArgs = array_merge($queryArgs, $userAndGroups);
+				$queryArgs[] = $shareWith;
+				$groups = \OC_Group::getUserGroups($shareWith);
+				if (!empty($groups)) {
+					$placeholders = join(',', array_fill(0, count($groups), '?'));
+					$where .= ' OR (`share_type` = ? AND `share_with` IN ('.$placeholders.')) ';
+					$queryArgs[] = self::SHARE_TYPE_GROUP;
+					$queryArgs = array_merge($queryArgs, $groups);
+				}
+				$where .= ')';
 				// Don't include own group shares
 				$where .= ' AND `uid_owner` != ?';
 				$queryArgs[] = $shareWith;
@@ -1451,8 +1462,11 @@ class Share extends \OC\Share\Constants {
 				$row['permissions'] &= ~\OCP\PERMISSION_SHARE;
 			}
 			// Add display names to result
-			if ( isset($row['share_with']) && $row['share_with'] != '') {
+			if ( isset($row['share_with']) && $row['share_with'] != '' &&
+					isset($row['share_with']) && $row['share_type'] === self::SHARE_TYPE_USER) {
 				$row['share_with_displayname'] = \OCP\User::getDisplayName($row['share_with']);
+			} else {
+				$row['share_with_displayname'] = $row['share_with'];
 			}
 			if ( isset($row['uid_owner']) && $row['uid_owner'] != '') {
 				$row['displayname_owner'] = \OCP\User::getDisplayName($row['uid_owner']);
@@ -1725,12 +1739,12 @@ class Share extends \OC\Share\Constants {
 
 			} elseif(!$sourceExists && !$isGroupShare)  {
 
-				$itemTarget = Helper::generateTarget($itemType, $itemSource, self::SHARE_TYPE_USER, $user,
+				$itemTarget = Helper::generateTarget($itemType, $itemSource, $shareType, $user,
 					$uidOwner, $suggestedItemTarget, $parent);
 				if (isset($fileSource)) {
 					if ($parentFolder) {
 						if ($parentFolder === true) {
-							$fileTarget = Helper::generateTarget('file', $filePath, self::SHARE_TYPE_USER, $user,
+							$fileTarget = Helper::generateTarget('file', $filePath, $shareType, $user,
 								$uidOwner, $suggestedFileTarget, $parent);
 							if ($fileTarget != $groupFileTarget) {
 								$parentFolders[$user]['folder'] = $fileTarget;
@@ -1740,7 +1754,7 @@ class Share extends \OC\Share\Constants {
 							$parent = $parentFolder[$user]['id'];
 						}
 					} else {
-						$fileTarget = Helper::generateTarget('file', $filePath, self::SHARE_TYPE_USER,
+						$fileTarget = Helper::generateTarget('file', $filePath, $shareType,
 							$user, $uidOwner, $suggestedFileTarget, $parent);
 					}
 				} else {

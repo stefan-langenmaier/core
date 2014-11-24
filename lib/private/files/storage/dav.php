@@ -58,7 +58,7 @@ class DAV extends \OC\Files\Storage\Common {
 				$this->root .= '/';
 			}
 		} else {
-			throw new \Exception();
+			throw new \Exception('Invalid webdav storage configuration');
 		}
 	}
 
@@ -85,7 +85,7 @@ class DAV extends \OC\Files\Storage\Common {
 		return 'webdav::' . $this->user . '@' . $this->host . '/' . $this->root;
 	}
 
-	protected function createBaseUri() {
+	public function createBaseUri() {
 		$baseUri = 'http';
 		if ($this->secure) {
 			$baseUri .= 's';
@@ -431,6 +431,7 @@ class DAV extends \OC\Files\Storage\Common {
 
 	public function getPermissions($path) {
 		$this->init();
+		$path = $this->cleanPath($path);
 		$response = $this->client->propfind($this->encodePath($path), array('{http://owncloud.org/ns}permissions'));
 		if (isset($response['{http://owncloud.org/ns}permissions'])) {
 			return $this->parsePermissions($response['{http://owncloud.org/ns}permissions']);
@@ -475,6 +476,7 @@ class DAV extends \OC\Files\Storage\Common {
 	 */
 	public function hasUpdated($path, $time) {
 		$this->init();
+		$path = $this->cleanPath($path);
 		try {
 			$response = $this->client->propfind($this->encodePath($path), array(
 				'{DAV:}getlastmodified',

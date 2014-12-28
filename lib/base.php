@@ -188,9 +188,17 @@ class OC {
 
 	public static function checkConfig() {
 		$l = OC_L10N::get('lib');
-		if (file_exists(self::$configDir . "/config.php")
-			and !is_writable(self::$configDir . "/config.php")
-		) {
+
+		// Create config in case it does not already exists
+		$configFilePath = self::$configDir .'/config.php';
+		if(!file_exists($configFilePath)) {
+			@touch($configFilePath);
+		}
+
+		// Check if config is writable
+		$configFileWritable = is_writable($configFilePath);
+		if (!$configFileWritable && !OC_Helper::isReadOnlyConfigEnabled()
+			|| !$configFileWritable && \OCP\Util::needUpgrade()) {
 			if (self::$CLI) {
 				echo $l->t('Cannot write into "config" directory!')."\n";
 				echo $l->t('This can usually be fixed by giving the webserver write access to the config directory')."\n";

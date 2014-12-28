@@ -10,6 +10,7 @@ namespace OC;
 
 use OC\Hooks\BasicEmitter;
 use OC\Hooks\Emitter;
+use OC\Repair\RepairConfig;
 
 class Repair extends BasicEmitter {
 	/**
@@ -69,7 +70,8 @@ class Repair extends BasicEmitter {
 	 */
 	public static function getRepairSteps() {
 		return array(
-			new \OC\Repair\RepairMimeTypes()
+			new \OC\Repair\RepairMimeTypes(),
+			new RepairConfig(),
 		);
 	}
 
@@ -91,7 +93,7 @@ class Repair extends BasicEmitter {
 		//only 7.0.0 thru 7.0.2 generated broken previews
 		$currentVersion = \OC_Config::getValue('version');
 		if (version_compare($currentVersion, '7.0.0.0', '>=') &&
-			version_compare($currentVersion, '7.0.2.2', '<=')) {
+			version_compare($currentVersion, '7.0.3.4', '<=')) {
 			$steps[] = new \OC\Repair\Preview();
 		}
 

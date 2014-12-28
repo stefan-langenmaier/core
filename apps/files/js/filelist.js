@@ -49,8 +49,10 @@
 		fileSummary: null,
 		initialized: false,
 
-		// number of files per page
-		pageSize: 20,
+		// number of files per page, calculated dynamically
+		pageSize: function() {
+			return Math.ceil(this.$container.height() / 50);
+		},
 
 		/**
 		 * Array of files in the current folder.
@@ -479,7 +481,8 @@
 				mimetype: $el.attr('data-mime'),
 				type: $el.attr('data-type'),
 				size: parseInt($el.attr('data-size'), 10),
-				etag: $el.attr('data-etag')
+				etag: $el.attr('data-etag'),
+				permissions: parseInt($el.attr('data-permissions'), 10)
 			};
 		},
 
@@ -490,7 +493,7 @@
 		 */
 		_nextPage: function(animate) {
 			var index = this.$fileList.children().length,
-				count = this.pageSize,
+				count = this.pageSize(),
 				tr,
 				fileData,
 				newTrs = [],
@@ -1167,7 +1170,7 @@
 			// if there are less elements visible than one page
 			// but there are still pending elements in the array,
 			// then directly append the next page
-			if (lastIndex < this.files.length && lastIndex < this.pageSize) {
+			if (lastIndex < this.files.length && lastIndex < this.pageSize()) {
 				this._nextPage(true);
 			}
 
@@ -1562,7 +1565,7 @@
 				this.$el.find('.selectedActions').addClass('hidden');
 			}
 			else {
-				canDelete = (this.getDirectoryPermissions() & OC.PERMISSION_DELETE);
+				canDelete = (this.getDirectoryPermissions() & OC.PERMISSION_DELETE) && this.isSelectedDeletable();
 				this.$el.find('.selectedActions').removeClass('hidden');
 				this.$el.find('#headerSize a>span:first').text(OC.Util.humanFileSize(summary.totalSize));
 				var selection = '';
@@ -1580,6 +1583,15 @@
 				this.$el.find('table').addClass('multiselect');
 				this.$el.find('.delete-selected').toggleClass('hidden', !canDelete);
 			}
+		},
+
+		/**
+		 * Check whether all selected files are deletable
+		 */
+		isSelectedDeletable: function() {
+			return _.reduce(this.getSelectedFiles(), function(deletable, file) {
+				return deletable && (file.permissions & OC.PERMISSION_DELETE);
+			}, true);
 		},
 
 		/**

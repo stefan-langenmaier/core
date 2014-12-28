@@ -104,7 +104,12 @@ OC.Settings.Apps = OC.Settings.Apps || {
 		if (app.internal === false) {
 			page.find('span.score').show();
 			page.find('p.appstore').show();
-			page.find('a#appstorelink').attr('href', 'http://apps.owncloud.com/content/show.php?content=' + app.id);
+			var link = page.find('a#appstorelink');
+			if(app.ocsid) {
+				link.attr('href', 'https://apps.owncloud.com/content/show.php?content=' + app.ocsid);
+			} else {
+				link.hide();
+			}
 			page.find('small.externalapp').hide();
 		} else {
 			page.find('p.appslink').hide();
@@ -235,7 +240,7 @@ OC.Settings.Apps = OC.Settings.Apps || {
 				element.val(t('settings','Uninstall'));
 			} else {
 				OC.Settings.Apps.removeNavigation(appid);
-				appitem.removeClass('active');
+				$('#app-navigation ul li').filterAttr('data-id', appid).remove();
 			}
 		},'json');
 	},

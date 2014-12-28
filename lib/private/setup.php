@@ -90,7 +90,9 @@ class OC_Setup {
 				'name' => 'MS SQL'
 			)
 		);
-		$configuredDatabases = $this->config->getSystemValue('supportedDatabases', array('sqlite', 'mysql', 'pgsql', 'oci', 'mssql'));
+
+		$configuredDatabases = $this->config->getSystemValue('supportedDatabases',
+			array('sqlite', 'mysql', 'pgsql'));
 		if(!is_array($configuredDatabases)) {
 			throw new Exception('Supported databases are not properly configured.');
 		}
@@ -164,7 +166,7 @@ class OC_Setup {
 		    && is_array($options['trusted_domains'])) {
 			$trustedDomains = $options['trusted_domains'];
 		} else {
-			$trustedDomains = array(OC_Request::serverHost());
+			$trustedDomains = array(\OC_Request::getDomainWithoutPort(\OC_Request::serverHost()));
 		}
 
 		if (OC_Util::runningOnWindows()) {
@@ -179,6 +181,7 @@ class OC_Setup {
 		//generate a random salt that is used to salt the local user passwords
 		$salt = OC_Util::generateRandomBytes(30);
 		OC_Config::setValue('passwordsalt', $salt);
+		OC_Config::setValue('secret', OC_Util::generateRandomBytes(96));
 
 		//write the config file
 		OC_Config::setValue('trusted_domains', $trustedDomains);

@@ -285,7 +285,7 @@ class Access extends LDAPUtility implements user\IUserTools {
 	 * @param boolean $isUser is it a user? otherwise group
 	 * @return string with the LDAP DN on success, otherwise false
 	 */
-	private function ocname2dn($name, $isUser) {
+	public function ocname2dn($name, $isUser) {
 		$table = $this->getMapTable($isUser);
 
 		$query = \OCP\DB::prepare('
@@ -403,6 +403,8 @@ class Access extends LDAPUtility implements user\IUserTools {
 
 		//a new user/group! Add it only if it doesn't conflict with other backend's users or existing groups
 		//disabling Cache is required to avoid that the new user is cached as not-existing in fooExists check
+		//NOTE: mind, disabling cache affects only this instance! Using it
+		// outside of core user management will still cache the user as non-existing.
 		$originalTTL = $this->connection->ldapCacheTTL;
 		$this->connection->setConfiguration(array('ldapCacheTTL' => 0));
 		if(($isUser && !\OCP\User::userExists($intName))
@@ -507,12 +509,21 @@ class Access extends LDAPUtility implements user\IUserTools {
 				if($isUsers) {
 					//cache the user names so it does not need to be retrieved
 					//again later (e.g. sharing dialogue).
+					$this->cacheUserExists($ocName);
 					$this->cacheUserDisplayName($ocName, $nameByLDAP);
 				}
 			}
 			continue;
 		}
 		return $ownCloudNames;
+	}
+
+	/**
+	 * caches a user as existing
+	 * @param string $ocName the internal ownCloud username
+	 */
+	public function cacheUserExists($ocName) {
+		$this->connection->writeToCache('userExists'.$ocName, true);
 	}
 
 	/**
@@ -615,38 +626,16 @@ class Access extends LDAPUtility implements user\IUserTools {
 	}
 
 	/**
-	 * retrieves all known groups from the mappings table
-	 * @return array with the results
-	 *
-	 * retrieves all known groups from the mappings table
+	 * removes a user from the mappings table
+	 * @param string $ocName
 	 */
-	private function mappedGroups() {
-		return $this->mappedComponents(false);
-	}
-
-	/**
-	 * retrieves all known users from the mappings table
-	 * @return array with the results
-	 *
-	 * retrieves all known users from the mappings table
-	 */
-	private function mappedUsers() {
-		return $this->mappedComponents(true);
-	}
-
-	/**
-	 * @param boolean $isUsers
-	 * @return array
-	 */
-	private function mappedComponents($isUsers) {
-		$table = $this->getMapTable($isUsers);
-
-		$query = \OCP\DB::prepare('
-			SELECT `ldap_dn`, `owncloud_name`
-			FROM `'. $table . '`'
-		);
-
-		return $query->execute()->fetchAll();
+	public function unmapUser($ocName) {
+		$table = $this->getMapTable(true);
+		$delete = \OCP\DB::prepare('
+			DELETE FROM `' . $table . '`
+			WHERE `owncloud_name` = ?
+		');
+		$delete->execute(array($ocName));
 	}
 
 	/**
@@ -694,7 +683,10 @@ class Access extends LDAPUtility implements user\IUserTools {
 		if($isUser) {
 			//make sure that email address is retrieved prior to login, so user
 			//will be notified when something is shared with him
-			$this->userManager->get($ocName)->update();
+			$user = $this->userManager->get($ocName);
+			if($user instanceof user\User) {
+				$user->update();
+			}
 		}
 
 		return true;
@@ -1073,12 +1065,18 @@ class Access extends LDAPUtility implements user\IUserTools {
 	/**
 	* escapes (user provided) parts for LDAP filter
 	* @param string $input, the provided value
+	* @param bool $allowAsterisk wether in * at the beginning should be preserved
 	* @return string the escaped string
 	*/
-	public function escapeFilterPart($input) {
+	public function escapeFilterPart($input, $allowAsterisk = false) {
+		$asterisk = '';
+		if($allowAsterisk && strlen($input) > 0 && $input[0] === '*') {
+			$asterisk = '*';
+			$input = mb_substr($input, 1, null, 'UTF-8');
+		}
 		$search  = array('*', '\\', '(', ')');
 		$replace = array('\\*', '\\\\', '\\(', '\\)');
-		return str_replace($search, $replace, $input);
+		return $asterisk . str_replace($search, $replace, $input);
 	}
 
 	/**
@@ -1141,6 +1139,33 @@ class Access extends LDAPUtility implements user\IUserTools {
 	}
 
 	/**
+	 * creates a filter part for searches by splitting up the given search
+	 * string into single words
+	 * @param string $search the search term
+	 * @param string[] $searchAttributes needs to have at least two attributes,
+	 * otherwise it does not make sense :)
+	 * @return string the final filter part to use in LDAP searches
+	 * @throws \Exception
+	 */
+	private function getAdvancedFilterPartForSearch($search, $searchAttributes) {
+		if(!is_array($searchAttributes) || count($searchAttributes) < 2) {
+			throw new \Exception('searchAttributes must be an array with at least two string');
+		}
+		$searchWords = explode(' ', trim($search));
+		$wordFilters = array();
+		foreach($searchWords as $word) {
+			$word .= '*';
+			//every word needs to appear at least once
+			$wordMatchOneAttrFilters = array();
+			foreach($searchAttributes as $attr) {
+				$wordMatchOneAttrFilters[] = $attr . '=' . $word;
+			}
+			$wordFilters[] = $this->combineFilterWithOr($wordMatchOneAttrFilters);
+		}
+		return $this->combineFilterWithAnd($wordFilters);
+	}
+
+	/**
 	 * creates a filter part for searches
 	 * @param string $search the search term
 	 * @param string[]|null $searchAttributes
@@ -1150,7 +1175,19 @@ class Access extends LDAPUtility implements user\IUserTools {
 	 */
 	private function getFilterPartForSearch($search, $searchAttributes, $fallbackAttribute) {
 		$filter = array();
-		$search = empty($search) ? '*' : '*'.$search.'*';
+		$haveMultiSearchAttributes = (is_array($searchAttributes) && count($searchAttributes) > 0);
+		if($haveMultiSearchAttributes && strpos(trim($search), ' ') !== false) {
+			try {
+				return $this->getAdvancedFilterPartForSearch($search, $searchAttributes);
+			} catch(\Exception $e) {
+				\OCP\Util::writeLog(
+					'user_ldap',
+					'Creating advanced filter for search failed, falling back to simple method.',
+					\OCP\Util::INFO
+				);
+			}
+		}
+		$search = empty($search) ? '*' : $search.'*';
 		if(!is_array($searchAttributes) || count($searchAttributes) === 0) {
 			if(empty($fallbackAttribute)) {
 				return '';

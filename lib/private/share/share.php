@@ -287,7 +287,7 @@ class Share extends \OC\Share\Constants {
 	 * Get the item of item type shared with a given user by source
 	 * @param string $itemType
 	 * @param string $itemSource
-	 * @param string $user User user to whom the item was shared
+	 * @param string $user User to whom the item was shared
 	 * @param int $shareType only look for a specific share type
 	 * @return array Return list of items with file_target, permissions and expiration
 	 */
@@ -332,18 +332,23 @@ class Share extends \OC\Share\Constants {
 		if(empty($shares) && $user !== null) {
 			$groups = \OC_Group::getUserGroups($user);
 
-			$query = \OC_DB::prepare(
-					'SELECT *
-						FROM
-						`*PREFIX*share`
-						WHERE
-						`' . $column . '` = ? AND `item_type` = ? AND `share_with` in (?)'
-					);
+			if (!empty($groups)) {
+				$where = 'WHERE `' . $column . '` = ? AND `item_type` = ? AND `share_with` in (?)';
+				$arguments = array($itemSource, $itemType, $groups);
+				$types = array(null, null, \Doctrine\DBAL\Connection::PARAM_STR_ARRAY);
 
-			$result = \OC_DB::executeAudited($query, array($itemSource, $itemType, implode(',', $groups)));
+				// TODO: inject connection, hopefully one day in the future when this
+				// class isn't static anymore...
+				$conn = \OC_DB::getConnection();
+				$result = $conn->executeQuery(
+					'SELECT * FROM `*PREFIX*share` ' . $where,
+					$arguments,
+					$types
+				);
 
-			while ($row = $result->fetchRow()) {
-				$shares[] = $row;
+				while ($row = $result->fetch()) {
+					$shares[] = $row;
+				}
 			}
 		}
 
@@ -1097,13 +1102,20 @@ class Share extends \OC\Share\Constants {
 	 * @return null
 	 */
 	protected static function unshareItem(array $item, $newParent = null) {
+
+		$shareType = (int)$item['share_type'];
+		$shareWith = null;
+		if ($shareType !== \OCP\Share::SHARE_TYPE_LINK) {
+			$shareWith = $item['share_with'];
+		}
+
 		// Pass all the vars we have for now, they may be useful
 		$hookParams = array(
 			'id'            => $item['id'],
 			'itemType'      => $item['item_type'],
 			'itemSource'    => $item['item_source'],
-			'shareType'     => (int)$item['share_type'],
-			'shareWith'     => $item['share_with'],
+			'shareType'     => $shareType,
+			'shareWith'     => $shareWith,
 			'itemParent'    => $item['parent'],
 			'uidOwner'      => $item['uid_owner'],
 		);

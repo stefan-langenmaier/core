@@ -8,6 +8,7 @@
 namespace Test\Files;
 
 use OC\Files\Cache\Watcher;
+use OC\Files\Storage\Temporary;
 
 class TemporaryNoTouch extends \OC\Files\Storage\Temporary {
 	public function touch($path, $mtime = null) {
@@ -668,6 +669,20 @@ class View extends \PHPUnit_Framework_TestCase {
 		$this->assertEquals($expectedPath, $view->getAbsolutePath($relativePath));
 	}
 
+	public function testPartFileInfo() {
+		$storage = new Temporary(array());
+		$scanner = $storage->getScanner();
+		\OC\Files\Filesystem::mount($storage, array(), '/test/');
+		$storage->file_put_contents('test.part', 'foobar');
+		$scanner->scan('');
+		$view = new \OC\Files\View('/test');
+		$info = $view->getFileInfo('test.part');
+
+		$this->assertInstanceOf('\OCP\Files\FileInfo', $info);
+		$this->assertNull($info->getId());
+		$this->assertEquals(6, $info->getSize());
+	}
+
 	function absolutePathProvider() {
 		return array(
 			array('/files/', ''),
@@ -677,6 +692,28 @@ class View extends \PHPUnit_Framework_TestCase {
 			array('/files/', '/'),
 			array('/files/test', 'test'),
 			array('/files/test', '/test'),
+		);
+	}
+
+	/**
+	 * @dataProvider relativePathProvider
+	 */
+	function testGetRelativePath($absolutePath, $expectedPath) {
+		$view = new \OC\Files\View('/files');
+		// simulate a external storage mount point which has a trailing slash
+		$view->chroot('/files/');
+		$this->assertEquals($expectedPath, $view->getRelativePath($absolutePath));
+	}
+
+	function relativePathProvider() {
+		return array(
+			array('/files/', '/'),
+			array('/files', '/'),
+			array('/files/0', '0'),
+			array('/files/false', 'false'),
+			array('/files/true', 'true'),
+			array('/files/test', 'test'),
+			array('/files/test/foo', 'test/foo'),
 		);
 	}
 

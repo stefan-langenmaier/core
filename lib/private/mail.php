@@ -61,6 +61,7 @@ class OC_Mail {
 		$mailo->Port = $SMTPPORT;
 		$mailo->SMTPAuth = $SMTPAUTH;
 		$mailo->SMTPDebug = $SMTPDEBUG;
+		$mailo->Debugoutput = 'error_log';
 		$mailo->SMTPSecure = $SMTPSECURE;
 		$mailo->AuthType = $SMTPAUTHTYPE;
 		$mailo->Username = $SMTPUSERNAME;
@@ -124,6 +125,9 @@ class OC_Mail {
 	 * @return bool
 	 */
 	public static function validateAddress($emailAddress) {
+		if (strpos($emailAddress, '@') === false) {
+			return false;
+		}
 		$emailAddress = self::buildAsciiEmail($emailAddress);
 		return PHPMailer::ValidateAddress($emailAddress);
 	}

@@ -442,7 +442,6 @@ class OC_Image {
 	public function loadFromFile($imagePath=false) {
 		// exif_imagetype throws "read error!" if file is less than 12 byte
 		if(!@is_file($imagePath) || !file_exists($imagePath) || filesize($imagePath) < 12 || !is_readable($imagePath)) {
-			OC_Log::write('core', 'OC_Image->loadFromFile, couldn\'t load: ' . (string) urlencode($imagePath), OC_Log::DEBUG);
 			return false;
 		}
 		$iType = exif_imagetype($imagePath);
@@ -652,6 +651,12 @@ class OC_Image {
 		}
 		// create gd image
 		$im = imagecreatetruecolor($meta['width'], $meta['height']);
+		if ($im == FALSE) {
+			fclose($fh);
+			trigger_error('imagecreatefrombmp(): imagecreatetruecolor failed for file "' . $fileName . '" with dimensions ' . $meta['width'] . 'x' . $meta['height'], E_USER_WARNING);
+			return FALSE;
+		}
+
 		$data = fread($fh, $meta['imagesize']);
 		$p = 0;
 		$vide = chr(0);
